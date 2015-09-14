@@ -1,7 +1,10 @@
 package org.csploit.android.plugins.mitm.hijacker;
 
 import android.graphics.Bitmap;
+
 import org.apache.http.impl.cookie.BasicClientCookie;
+import org.csploit.android.core.System;
+import org.csploit.android.net.http.RequestParser;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -13,8 +16,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
-import org.csploit.android.core.System;
-import org.csploit.android.net.http.RequestParser;
 
 public class Session
 {
@@ -25,9 +26,11 @@ public class Session
   public String mAddress = "";
   public String mDomain = "";
   public String mUserAgent = "";
+  public HashMap<String, ArrayList<String>> mUrls = null;
   public HashMap<String, BasicClientCookie> mCookies = null;
 
   public Session(){
+    mUrls = new HashMap<String, ArrayList<String>>();
     mCookies = new HashMap<String, BasicClientCookie>();
   }
 
@@ -133,6 +136,8 @@ public class Session
             session.mCookies.put(cookie.getName(), cookie);
           }
         }
+
+        // TODO: load intercepted urls
 
         reader.close();
       }

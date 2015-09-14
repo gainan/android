@@ -7,5 +7,19 @@
         android:icon="@drawable/action_open"
         csploit:showAsAction="ifRoom"
         android:title="@string/hijacker_load_from_file"/>
-
+    <item
+        android:id="@+id/hijacker_filter_images"
+        android:checkable="true"
+        android:checked="true"
+        android:title="Exclude images"/>
+    <item
+        android:id="@+id/hijacker_filter_no_webs"
+        android:checkable="true"
+        android:checked="true"
+        android:title="Exclude js,css,etc"/>
+    <item
+        android:id="@+id/hijacker_filter_with_no_cookies"
+        android:checkable="true"
+        android:checked="true"
+        android:title="Filter URLs with no cookies"/>
 </menu>

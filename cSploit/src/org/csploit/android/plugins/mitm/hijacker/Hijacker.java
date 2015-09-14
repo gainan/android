@@ -80,6 +80,9 @@ public class Hijacker extends ActionBarActivity {
 	private boolean mRunning = false;
 	private RequestListener mRequestListener = null;
 	private SpoofSession mSpoof = null;
+	private boolean mFilterImages = true; // don't add images of an URL to the list of intercepted URLs
+	private boolean mFilterNoWebs = true; // filter css, js, etc
+	private boolean mFilterURLsNoCookies = true; // don't intercept URLs if there're no cookies
 
 	private static int getFaviconFromDomain(String domain) {
 		if (domain.contains("amazon."))
@@ -260,6 +263,39 @@ public class Hijacker extends ActionBarActivity {
 			return mSessions.get(mSessions.keySet().toArray()[position]);
 		}
 
+		public void addUrl (String str_session, String url, ArrayList<String> headers) {
+			Session sess = mSessions.get(str_session);
+			if (sess != null) {
+				String _url_file = url.substring(url.lastIndexOf("/"), url.length()).toLowerCase();
+				Logger.info("Url addUrl() filterImages: " + mFilterImages + " filterNoWebs: " + mFilterNoWebs + " file: " + _url_file);
+
+				if (sess.mUrls.containsKey(url)){
+					//Logger.info("Url already added (dup) for " + sess.mDomain + ": " + url);
+					return;
+				}
+				else if ((_url_file == null || _url_file.isEmpty()) && sess.mUrls.containsKey(url) == false){
+					//Logger.info("Url (file) added for " + sess.mDomain + ": " + url);
+					sess.mUrls.put(url, headers);
+				}
+				else if (mFilterImages &&
+						(_url_file.contains(".jpg") || _url_file.contains(".jpeg") ||
+								_url_file.contains(".png") || _url_file.contains(".gif"))) {
+					//Logger.info("Url NOT added (imgs) for " + sess.mDomain + ": " + url);
+					return;
+				}
+				else if (mFilterNoWebs &&
+						(_url_file.contains(".ico") || _url_file.contains(".js") ||
+								_url_file.contains(".css"))) {
+					//Logger.info("Url NOT added (noWebs) for " + sess.mDomain + ": " + url);
+					return;
+				}
+				else {
+					//Logger.info("Url NOT added (general) for " + sess.mDomain + ": " + url);
+					sess.mUrls.put(url, headers);
+				}
+			}
+		}
+
 		@Override
 		public int getCount() {
 			return mSessions.size();
@@ -341,11 +377,11 @@ public class Hijacker extends ActionBarActivity {
 			if (session.mUserName != null) {
 				if (holder.address != null)
 					holder.address.setText(session.mUserName);
-      } else if (holder.address != null)
+            } else if (holder.address != null)
 					holder.address.setText(session.mAddress);
 
 			if (holder.domain != null)
-				holder.domain.setText(session.mDomain);
+				holder.domain.setText(session.mDomain + " (" + session.mUrls.size() + ")");
 
 			return row;
 		}
@@ -353,7 +389,7 @@ public class Hijacker extends ActionBarActivity {
 
 	class RequestListener implements OnRequestListener {
 		@Override
-		public void onRequest(boolean https, String address, String hostname,
+		public void onRequest(boolean https, String address, String hostname, String url,
 				ArrayList<String> headers) {
 			ArrayList<BasicClientCookie> cookies = RequestParser
 					.getCookiesFromHeaders(headers);
@@ -361,9 +397,15 @@ public class Hijacker extends ActionBarActivity {
 			// got any cookie ?
 			if (cookies != null && cookies.size() > 0) {
 				String domain = cookies.get(0).getDomain();
+				Logger.info("GOT cookies - domain: " + domain);
 
 				if (domain == null || domain.isEmpty()) {
 					domain = RequestParser.getBaseDomain(hostname);
+					if (domain == null) {
+						//Logger.warning("Domain was null, so domain == hostname: " + hostname);
+						domain = hostname;
+					}
+
 
 					for (BasicClientCookie cooky : cookies)
 						cooky.setDomain(domain);
@@ -379,6 +421,12 @@ public class Hijacker extends ActionBarActivity {
 					session.mDomain = domain;
 					session.mUserAgent = RequestParser.getHeaderValue(
 							"User-Agent", headers);
+					session.mUrls.put("http://" + domain, headers);
+					session.mUrls.put(url, headers);
+					Logger.info("New session with cookies: " + url);
+				}
+				else{
+					mAdapter.addUrl(address + ":" + RequestParser.getBaseDomain(hostname) + ":" + https, url, headers);
 				}
 
 				// update/initialize session cookies
@@ -394,6 +442,29 @@ public class Hijacker extends ActionBarActivity {
 						mAdapter.notifyDataSetChanged();
 					}
 				});
+			}
+			else {
+				if (mFilterURLsNoCookies == false) {
+					String domain = RequestParser.getBaseDomain(hostname);
+					Session session = mAdapter.getSession(address, domain, https);
+					if (session == null) {
+						session = new Session();
+						session.mHTTPS = https;
+						session.mAddress = address + "(!C)";
+						session.mDomain = domain;
+						session.mUserAgent = RequestParser.getHeaderValue(
+								"User-Agent", headers);
+						session.mUrls.put("http://" + domain, headers);
+						session.mUrls.put(url, headers);
+					} else {
+						// there's a race condition where hostname becomes null
+						String _host = hostname;
+						if (_host == null) {
+							Logger.error("hostname null ...");
+						} else
+							mAdapter.addUrl(address + ":" + RequestParser.getBaseDomain(_host) + ":" + https, url, headers);
+					}
+				}
 			}
 		}
 	}
@@ -516,7 +587,10 @@ public class Hijacker extends ActionBarActivity {
 		if (System.getProxy() != null)
 			System.getProxy().setOnRequestListener(mRequestListener);
 
-    try {
+		 if(System.getHttpsRedirector() != null)
+			 System.getHttpsRedirector().setOnRequestListener(mRequestListener);
+
+		try {
       mSpoof.start(new OnSessionReadyListener() {
         @Override
         public void onSessionReady() {
@@ -613,6 +687,21 @@ public class Hijacker extends ActionBarActivity {
 
 			return true;
 
+		case R.id.hijacker_filter_images:
+			mFilterImages = !item.isChecked();
+			item.setChecked(mFilterImages);
+
+			return true;
+		case R.id.hijacker_filter_no_webs:
+			mFilterNoWebs = !item.isChecked();
+			item.setChecked(mFilterNoWebs);
+
+			return true;
+		case R.id.hijacker_filter_with_no_cookies:
+			mFilterURLsNoCookies = !item.isChecked();
+			item.setChecked(mFilterURLsNoCookies);
+
+			return true;
 		default:
 			return super.onOptionsItemSelected(item);
 		}

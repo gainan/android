@@ -24,6 +24,7 @@ import android.support.v7.app.ActionBarActivity;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
+import android.view.View;
 import android.view.Window;
 import android.webkit.CookieManager;
 import android.webkit.CookieSyncManager;
@@ -31,16 +32,26 @@ import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
+import android.widget.Spinner;
+import android.widget.Toast;
 
 import org.apache.http.impl.cookie.BasicClientCookie;
 import org.csploit.android.R;
+import org.csploit.android.core.Logger;
 import org.csploit.android.core.System;
+import org.csploit.android.gui.dialogs.InputDialog;
+
+import java.util.ArrayList;
 
 public class HijackerWebView extends ActionBarActivity {
 	private static final String DEFAULT_USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_7_5) AppleWebKit/537.4 (KHTML, like Gecko) Chrome/22.0.1229.94 Safari/537.4";
 
 	private WebSettings mSettings = null;
 	private WebView mWebView = null;
+	private Spinner mSpinUrls = null;
+	private Session mCurrentSession = null;
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -58,6 +69,7 @@ public class HijackerWebView extends ActionBarActivity {
 		getSupportActionBar().setDisplayHomeAsUpEnabled(true);
 		setSupportProgressBarIndeterminateVisibility(false);
 
+		mSpinUrls = (Spinner) findViewById(R.id.spinUrls);
 		mWebView = (WebView) findViewById(R.id.webView);
 		mSettings = mWebView.getSettings();
 
@@ -65,6 +77,18 @@ public class HijackerWebView extends ActionBarActivity {
 		mSettings.setBuiltInZoomControls(true);
 		mSettings.setAppCacheEnabled(false);
 		mSettings.setUserAgentString(DEFAULT_USER_AGENT);
+
+		mSpinUrls.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+			@Override
+			public void onItemSelected(AdapterView<?> adapterView, View view, int _pos, long l) {
+				mWebView.loadUrl(adapterView.getItemAtPosition(_pos).toString());
+			}
+
+			@Override
+			public void onNothingSelected(AdapterView<?> adapterView) {
+
+			}
+		});
 
 		mWebView.setWebViewClient(new WebViewClient() {
 			@Override
@@ -93,27 +117,38 @@ public class HijackerWebView extends ActionBarActivity {
 		CookieSyncManager.createInstance(this);
 		CookieManager.getInstance().removeAllCookie();
 
-		Session session = (Session) System.getCustomData();
-		if (session != null) {
+		mCurrentSession = (Session) System.getCustomData();
+		if (mCurrentSession != null) {
 			String domain = null, rawcookie = null;
 
-			for (BasicClientCookie cookie : session.mCookies.values()) {
+			for (BasicClientCookie cookie : mCurrentSession.mCookies.values()) {
 				domain = cookie.getDomain();
 				rawcookie = cookie.getName() + "=" + cookie.getValue()
 						+ "; domain=" + domain + "; path=/"
-						+ (session.mHTTPS ? ";secure" : "");
+						+ (mCurrentSession.mHTTPS ? ";secure" : "");
 
 				CookieManager.getInstance().setCookie(domain, rawcookie);
 			}
 
 			CookieSyncManager.getInstance().sync();
 
-			if (session.mUserAgent != null
-					&& session.mUserAgent.isEmpty() == false)
-				mSettings.setUserAgentString(session.mUserAgent);
+			if (mCurrentSession.mUserAgent != null
+					&& mCurrentSession.mUserAgent.isEmpty() == false)
+				mSettings.setUserAgentString(mCurrentSession.mUserAgent);
 
-			mWebView.loadUrl((session.mHTTPS ? "https" : "http") + "://www."
-					+ domain);
+			String[] urls = new String[mCurrentSession.mUrls.keySet().size()];
+			if (mCurrentSession.mUrls.size() > 1) {
+				mCurrentSession.mUrls.keySet().toArray(urls);
+				ArrayAdapter<String> _urls_adapter = new ArrayAdapter<String>(
+						this,
+            			android.R.layout.simple_spinner_item,
+						urls);
+				_urls_adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+				mSpinUrls.setAdapter(_urls_adapter);
+			}
+
+			Logger.info("Loading url: " + mCurrentSession.mUrls.get(0));
+			mWebView.loadUrl(urls[0]);
 		}
 	}
 
@@ -165,10 +200,42 @@ public class HijackerWebView extends ActionBarActivity {
 		case R.id.reload:
 
 			mWebView.reload();
+			return true;
 
+		case R.id.view_cookies:
+			viewCookies();
+			return true;
 		default:
 			return super.onOptionsItemSelected(item);
 		}
+	}
+
+	public void viewCookies () {
+		if (mCurrentSession == null) {
+			Toast.makeText(this, "Error loading cookies, no active session.", Toast.LENGTH_LONG).show();
+			return;
+		}
+
+		String cookies_list = "";
+			for (String _url_report : mCurrentSession.mUrls.keySet()) {
+				Logger.info("Repor for: " + _url_report);
+				ArrayList<String> _url_headers = mCurrentSession.mUrls.get(_url_report);
+
+				cookies_list += "#####   URL   #####\n" + _url_report + "\n";
+				cookies_list += "~~~~~ HEADERS ~~~~~\n";
+
+				for (String header : _url_headers){
+					cookies_list += header + "\n";
+				}
+				cookies_list += "--------------------\n\n";
+			}
+
+		new InputDialog("Cookies on " + mCurrentSession.mDomain, "", cookies_list, true, false, this, new InputDialog.InputDialogListener() {
+			@Override
+			public void onInputEntered(String input) {
+
+			}
+		}).show();
 	}
 
 	@Override

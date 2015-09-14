@@ -20,14 +20,14 @@ package org.csploit.android.net.http.proxy;
 
 import android.util.Log;
 
+import org.csploit.android.core.Profiler;
+import org.csploit.android.core.System;
+
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
-
-import org.csploit.android.core.Profiler;
-import org.csploit.android.core.System;
 
 public class Proxy implements Runnable{
   private static final String TAG = "HTTP.PROXY";
@@ -47,7 +47,7 @@ public class Proxy implements Runnable{
   }
 
   public static interface OnRequestListener{
-    public void onRequest(boolean https, String address, String hostname, ArrayList<String> headers);
+    public void onRequest(boolean https, String address, String hostname, String url, ArrayList<String> headers);
   }
 
   public Proxy(InetAddress address, int port) throws IOException{

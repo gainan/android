@@ -15,22 +15,24 @@
         android:contentDescription="@string/app_name" />
 
     <TextView
-        android:id="@+id/sessionTitle"
+        android:id="@+id/sessionDescription"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_alignParentTop="true"
         android:layout_toRightOf="@id/sessionIcon"
         android:fontFamily="sans-serif-light"
         android:textColor="@color/app_color"
+        android:text="title"
         android:textSize="16sp" />
 
     <TextView
-        android:id="@+id/sessionDescription"
+        android:id="@+id/sessionTitle"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_toRightOf="@id/sessionIcon"
-        android:layout_below="@id/sessionTitle"
+        android:layout_below="@id/sessionDescription"
         android:textColor="@color/gray_text"
+        android:text="desc"
         android:textSize="14sp" />
 
 </RelativeLayout>

@@ -16,5 +16,9 @@
         android:icon="@drawable/action_refresh"
         csploit:showAsAction="ifRoom"
         android:title="R"/>
+    <item
+        android:id="@+id/view_cookies"
+        csploit:showAsAction="never"
+        android:title="View cookies"/>
 
 </menu>

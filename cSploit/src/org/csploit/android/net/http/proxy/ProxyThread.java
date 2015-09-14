@@ -18,6 +18,12 @@
  */
 package org.csploit.android.net.http.proxy;
 
+import org.csploit.android.core.Logger;
+import org.csploit.android.core.Profiler;
+import org.csploit.android.core.System;
+import org.csploit.android.net.http.RequestParser;
+import org.csploit.android.net.http.proxy.Proxy.OnRequestListener;
+
 import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
@@ -32,12 +38,6 @@ import java.util.regex.Pattern;
 
 import javax.net.SocketFactory;
 import javax.net.ssl.SSLSocketFactory;
-
-import org.csploit.android.core.Logger;
-import org.csploit.android.core.Profiler;
-import org.csploit.android.core.System;
-import org.csploit.android.net.http.RequestParser;
-import org.csploit.android.net.http.proxy.Proxy.OnRequestListener;
 
 public class ProxyThread extends Thread
 {
@@ -179,7 +179,7 @@ public class ProxyThread extends Thread
           if(mRequestListener != null){
             Profiler.instance().profile("onRequest handler");
 
-            mRequestListener.onRequest(https, client, mServerName, headers);
+            mRequestListener.onRequest(https, client, mServerName, url, headers);
           }
 
           mWriter = new BufferedOutputStream(mSocket.getOutputStream());

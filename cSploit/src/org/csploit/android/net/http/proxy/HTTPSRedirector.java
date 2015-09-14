@@ -20,9 +20,15 @@ package org.csploit.android.net.http.proxy;
 
 import android.content.Context;
 
+import org.csploit.android.core.Logger;
+import org.csploit.android.core.System;
+import org.csploit.android.net.http.RequestParser;
+
 import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -33,30 +39,35 @@ import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLException;
+import javax.net.ssl.SSLHandshakeException;
+import javax.net.ssl.SSLProtocolException;
 import javax.net.ssl.SSLServerSocket;
 import javax.net.ssl.SSLServerSocketFactory;
 import javax.net.ssl.SSLSocket;
-
-import org.csploit.android.core.System;
-import org.csploit.android.net.http.RequestParser;
-import org.csploit.android.core.Logger;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
 
 public class HTTPSRedirector implements Runnable
 {
   private static final int BACKLOG = 255;
 
-  private static final String KEYSTORE_FILE = "dsploit.keystore";
-  private static final String KEYSTORE_PASS = "dsploit";
+  private static final String KEYSTORE_FILE = "csploit.p12";
+  private static final String KEYSTORE_PASS = "1234";
 
+  private Proxy.OnRequestListener mRequestListener = null;
   private Context mContext = null;
   private InetAddress mAddress = null;
   private int mPort = System.HTTPS_REDIR_PORT;
   private boolean mRunning = false;
   private SSLServerSocket mSocket = null;
+
+  public void setOnRequestListener(Proxy.OnRequestListener listener){ mRequestListener = listener; }
 
   public HTTPSRedirector(Context context, InetAddress address, int port) throws IOException, KeyStoreException, CertificateException, NoSuchAlgorithmException, UnrecoverableKeyException, KeyManagementException{
     mContext = context;
@@ -66,14 +77,37 @@ public class HTTPSRedirector implements Runnable
   }
 
   private SSLServerSocket getSSLSocket() throws IOException, KeyStoreException, CertificateException, NoSuchAlgorithmException, UnrecoverableKeyException, KeyManagementException{
+    //java.lang.System.setProperty("javax.net.ssl.keyStore", KEYSTORE_FILE);
+    //java.lang.System.setProperty("javax.net.ssl.keyStorePassword", KEYSTORE_PASS);
+
     KeyStore keyStore = KeyStore.getInstance("PKCS12");
-    keyStore.load(mContext.getAssets().open(KEYSTORE_FILE), KEYSTORE_PASS.toCharArray());
+
+    InputStream _ssl_cert = mContext.getAssets().open(KEYSTORE_FILE);
+    if (_ssl_cert == null) {
+      File _cert = new File(mContext.getFilesDir().getPath() + "/" + KEYSTORE_FILE);
+      FileInputStream fis = null;
+      if (_cert.exists() == false) {
+        Logger.info("Using CERT: /sdcard/csploit/" + KEYSTORE_FILE);
+        _cert = new File("/sdcard/csploit/" + KEYSTORE_FILE);
+        fis = new FileInputStream(_cert);
+      } else
+        fis = new FileInputStream(_cert);
+
+      keyStore.load(fis, KEYSTORE_PASS.toCharArray());
+      fis.close();
+      Logger.info("getSSLSocket() Loading KEYSTORE from: " + _cert.getAbsoluteFile());
+    }
+    else{
+      Logger.info("getSSLSocket() Loading KEYSTORE from assets");
+      keyStore.load(_ssl_cert, KEYSTORE_PASS.toCharArray());
+    }
 
     KeyManagerFactory keyMan = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
     keyMan.init(keyStore, KEYSTORE_PASS.toCharArray());
 
+    TrustManager[] tm = new TrustManager[] { new NaiveTrustManager() };
     SSLContext sslContext = SSLContext.getInstance("TLS");
-    sslContext.init(keyMan.getKeyManagers(), null, null);
+    sslContext.init(keyMan.getKeyManagers(), tm, null);
 
     SSLServerSocketFactory sslFactory = sslContext.getServerSocketFactory();
 
@@ -107,13 +141,20 @@ public class HTTPSRedirector implements Runnable
         try{
           final SSLSocket client = (SSLSocket) mSocket.accept();
 
+          Logger.info("SSLClient SSL session cipher: " + client.getSession().getCipherSuite());
+          Logger.info("SSLClient SSL PeerHost: " + client.getSession().getPeerHost());
+          Logger.info("SSLClient SSL protocol: " + client.getSession().getProtocol());
+          //Logger.info("SSLClient PeerCertificate: " + ((client.getSession().getPeerCertificates().length > 0) ? client.getSession().getPeerCertificates()[0].toString() : ""));
+          //Logger.info("SSLClient SubjectDN: " + ((client.getSession().getPeerCertificateChain().length > 0) ? client.getSession().getPeerCertificateChain()[0].getSubjectDN(): "No DN"));
+
+          // Process client request on a new thread
           new Thread(new Runnable(){
             @Override
             public void run(){
-              try{
-                String clientAddress = client.getInetAddress().getHostAddress();
+              String clientAddress = client.getInetAddress().getHostAddress();
 
-                Logger.debug("Incoming connection from " + clientAddress);
+              try{
+                Logger.debug("Incoming connection from " + clientAddress + " (request to: " + client.getPort() + ":" + client.getRemoteSocketAddress().toString() + ")");
 
                 InputStream reader = client.getInputStream();
 
@@ -155,8 +196,18 @@ public class HTTPSRedirector implements Runnable
 
                     // build the patched request
                     builder.append(line + "\n");
-                  }
 
+                    if (mRequestListener != null){
+                      Logger.info("OnSSLRequest() mRequestListener : " + serverName);
+                      if (serverName != null)
+                        mRequestListener.onRequest(true, clientAddress, serverName, RequestParser.getUrlFromRequest(serverName, builder.toString()).replace("http://", "https://"), headers);
+                      else
+                        Logger.error("ONSSLRequest server null");
+                    }
+                    else{
+                      Logger.info("mRequestListener null");
+                    }
+                  }
 
                   if(serverName != null){
                     BufferedOutputStream writer = new BufferedOutputStream(client.getOutputStream());
@@ -181,19 +232,78 @@ public class HTTPSRedirector implements Runnable
 
                 reader.close();
               }
+              catch (SSLHandshakeException e){
+                Logger.debug("(" + clientAddress + ") HTTPSRedirector SSLHandshakeException: " + e.getMessage());
+                System.errorLogging(e);
+              }
+              catch (SSLProtocolException e){
+                // usually fired when the browser has stopped the request, due to a non valid SSL cert.
+                Logger.debug("(" + clientAddress + ") HTTPSRedirector SSLProtocolException: " + e.getMessage());
+                System.errorLogging(e);
+              }
+              catch (SSLException e){
+                Logger.debug("(" + clientAddress + ") HTTPSRedirector SSLException: " + e.getMessage());
+                System.errorLogging(e);
+              }
               catch(IOException e){
+                Logger.debug("(" + clientAddress + ") HTTPSRedirector IOException: " + e.getMessage());
                 System.errorLogging(e);
               }
             }
           }).start();
         }
-        catch(Exception e){ }
+        catch(Exception e){
+          Logger.debug("HTTPSRedirector while() Exception: " + e.getMessage());
+          System.errorLogging(e);
+        }
       }
 
       Logger.debug("HTTPS redirector stopped.");
     }
     catch(Exception e){
+      Logger.debug("HTTPSRedirector run() Exception: " + e.getMessage());
       System.errorLogging(e);
+    }
+  }
+
+
+
+
+
+
+
+
+
+
+  /**
+   * This Trust Manager is "naive" because it trusts everyone.
+   **/
+  public class NaiveTrustManager implements X509TrustManager
+  {
+    /**
+     * Doesn't throw an exception, so this is how it approves a certificate.
+     * @see javax.net.ssl.X509TrustManager#checkClientTrusted(java.security.cert.X509Certificate[], String)
+     **/
+    public void checkClientTrusted ( X509Certificate[] cert, String authType )
+            throws CertificateException
+    {
+    }
+
+    /**
+     * Doesn't throw an exception, so this is how it approves a certificate.
+     * @see javax.net.ssl.X509TrustManager#checkServerTrusted(java.security.cert.X509Certificate[], String)
+     **/
+    public void checkServerTrusted ( X509Certificate[] cert, String authType )
+            throws CertificateException
+    {
+    }
+
+    /**
+     * @see javax.net.ssl.X509TrustManager#getAcceptedIssuers()
+     **/
+    public X509Certificate[] getAcceptedIssuers ()
+    {
+      return null;  // I've seen someone return new X509Certificate[ 0 ];
     }
   }
 }
