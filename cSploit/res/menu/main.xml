@@ -19,33 +19,42 @@
         csploit:showAsAction="ifRoom"
         android:title="@string/menu_wifi_scan" />
 
-    <group android:id="@+id/session_group">
-        <item
-            android:id="@+id/new_session"
-            android:title="@string/menu_new_session" />
-        <item
-            android:id="@+id/save_session"
-            android:title="@string/menu_save_session" />
-        <item
-            android:id="@+id/restore_session"
-            android:title="@string/menu_restore_session" />
-        <item
-            android:id="@+id/settings"
-            android:title="@string/menu_settings" />
-    </group>
-    <group android:id="@+id/misc_group">
-        <item
-            android:id="@+id/ss_monitor"
-            android:title="@string/menu_stop_monitor" />
-        <item
-            android:id="@+id/ss_msfrpcd"
-            android:title="@string/menu_stop_msfrpcd" />
-        <item
-            android:id="@+id/submit_issue"
-            android:title="@string/menu_submit_issue" />
-        <item
-            android:id="@+id/about"
-            android:title="@string/menu_about" />
-    </group>
+    <item
+        android:id="@+id/menu_overflow"
+        android:icon="@drawable/ic_action_overflow"
+        csploit:showAsAction="always"
+        android:title="">
+
+        <menu>
+            <group android:id="@+id/session_group">
+                <item
+                    android:id="@+id/new_session"
+                    android:title="@string/menu_new_session" />
+                <item
+                    android:id="@+id/save_session"
+                    android:title="@string/menu_save_session" />
+                <item
+                    android:id="@+id/restore_session"
+                    android:title="@string/menu_restore_session" />
+                <item
+                    android:id="@+id/settings"
+                    android:title="@string/menu_settings" />
+            </group>
+            <group android:id="@+id/misc_group">
+                <item
+                    android:id="@+id/ss_monitor"
+                    android:title="@string/menu_stop_monitor" />
+                <item
+                    android:id="@+id/ss_msfrpcd"
+                    android:title="@string/menu_stop_msfrpcd" />
+                <item
+                    android:id="@+id/submit_issue"
+                    android:title="@string/menu_submit_issue" />
+                <item
+                    android:id="@+id/about"
+                    android:title="@string/menu_about" />
+            </group>
+        </menu>
+    </item>
 
 </menu>
