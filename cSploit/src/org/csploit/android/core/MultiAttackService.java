@@ -10,6 +10,7 @@ import android.content.IntentFilter;
 import android.support.v4.app.NotificationCompat;
 
 import org.csploit.android.R;
+import org.csploit.android.events.Os;
 import org.csploit.android.net.Network;
 import org.csploit.android.net.Target;
 import org.csploit.android.net.datasource.Search;
@@ -139,8 +140,8 @@ public class MultiAttackService extends IntentService {
           }
 
           @Override
-          public void onOsFound(String os) {
-            target.setDeviceOS(os);
+          public void onOsFound(Os os) {
+            target.setDeviceOS(os.os);
           }
 
           @Override

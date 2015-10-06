@@ -29,10 +29,12 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.ToggleButton;
+
 import org.csploit.android.R;
 import org.csploit.android.core.ChildManager;
 import org.csploit.android.core.Plugin;
 import org.csploit.android.core.System;
+import org.csploit.android.events.Os;
 import org.csploit.android.helpers.ThreadHelper;
 import org.csploit.android.net.Network;
 import org.csploit.android.net.Target;
@@ -251,14 +253,23 @@ public class Inspector extends Plugin{
       target.addOpenPort(port, Network.Protocol.fromString(protocol));
     }
 
+    short bestOs = 0;
     @Override
-    public void onOsFound(final String os){
-      target.setDeviceOS(os);
-
-      Inspector.this.runOnUiThread(new Runnable(){
+    public void onOsFound(final Os os){
+      Inspector.this.runOnUiThread(new Runnable() {
         @Override
-        public void run(){
-          mDeviceOS.setText(os);
+        public void run() {
+          String str_os = "";
+
+          if (os.accuracy > bestOs) {
+            bestOs = os.accuracy;
+            str_os = os.os;
+          }
+          else
+            return;
+
+          target.setDeviceOS(str_os);
+          mDeviceOS.setText(str_os);
         }
       });
     }
@@ -267,9 +278,9 @@ public class Inspector extends Plugin{
     public void onDeviceFound(final String device){
       target.setDeviceType(device);
 
-      Inspector.this.runOnUiThread(new Runnable(){
+      Inspector.this.runOnUiThread(new Runnable() {
         @Override
-        public void run(){
+        public void run() {
           mDeviceType.setText(device);
         }
       });
@@ -277,10 +288,11 @@ public class Inspector extends Plugin{
 
     @Override
     public void onEnd(int code){
-      Inspector.this.runOnUiThread(new Runnable(){
+      Inspector.this.runOnUiThread(new Runnable() {
         @Override
-        public void run(){
-          if(mRunning)
+        public void run() {
+          bestOs = 0;
+          if (mRunning)
             setStoppedState();
         }
       });

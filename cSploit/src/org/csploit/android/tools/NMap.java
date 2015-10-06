@@ -103,7 +103,7 @@ public class NMap extends Tool {
         }
       } else if(e instanceof Os) {
         Os os = (Os) e;
-        onOsFound(os.os);
+        onOsFound(os);
         onDeviceFound(os.type);
       } else {
         Logger.error("unknown event: " + e);
@@ -112,7 +112,7 @@ public class NMap extends Tool {
 
     public abstract void onOpenPortFound( int port, String protocol );
     public abstract void onServiceFound( int port, String protocol, String service, String version );
-    public abstract void onOsFound( String os );
+    public abstract void onOsFound( Os os );
     public abstract void onDeviceFound( String device );
   }
 
